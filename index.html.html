@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Entry Portal</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="background-blob blob-1"></div>
+  <div class="background-blob blob-2"></div>
+
+  <main class="container">
+    <div class="card">
+      <header class="card-header">
+        <div class="icon-badge">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <polyline points="16 11 18 13 22 9"></polyline>
+          </svg>
+        </div>
+        <h1>Data Portal Entry</h1>
+        <p>Real-time submission to EC2 connected database.</p>
+      </header>
+
+      <form id="dataForm" class="form" novalidate>
+        <div class="input-group">
+          <input type="text" id="fullName" name="fullName" required placeholder=" " />
+          <label for="fullName">Full Name</label>
+        </div>
+
+        <div class="input-group">
+          <input type="email" id="email" name="email" required placeholder=" " />
+          <label for="email">Email Address</label>
+        </div>
+
+        <div class="input-group">
+          <select id="category" name="category" required>
+            <option value="" disabled selected hidden></option>
+            <option value="General">General Inquiry</option>
+            <option value="Technical">Technical Support</option>
+            <option value="Billing">Billing & Finance</option>
+          </select>
+          <label for="category" class="select-label">Select Category</label>
+        </div>
+
+        <div class="input-group">
+          <textarea id="notes" name="notes" rows="3" placeholder=" "></textarea>
+          <label for="notes">Additional Notes</label>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit">
+          <span class="btn-text">Submit Data</span>
+          <span class="spinner" hidden></span>
+        </button>
+      </form>
+
+      <div id="toast" class="toast" hidden>
+        <div class="toast-content">
+          <span id="toastIcon" class="toast-icon">✓</span>
+          <span id="toastMessage">Record saved successfully!</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // CONFIGURATION: If running without Nginx reverse proxy, replace window.location.origin with your EC2 public URL (e.g. "http://18.xxx.xxx.xxx:3000")
+    const API_BASE_URL = window.location.port === "3000" || window.location.port === "" 
+      ? "" 
+      : "http://localhost:3000"; 
+
+    const form = document.getElementById('dataForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const spinner = submitBtn.querySelector('.spinner');
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastMessage = document.getElementById('toastMessage');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!form.checkValidity()) {
+        showToast('Please fill in all required fields accurately.', false);
+        return;
+      }
+
+      setLoading(true);
+
+      const formData = {
+        fullName: document.getElementById('fullName').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        category: document.getElementById('category').value,
+        notes: document.getElementById('notes').value.trim()
+      };
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/entry`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showToast('Data inserted into database successfully!', true);
+          form.reset();
+        } else {
+          showToast(result.error || 'Server error occurred.', false);
+        }
+      } catch (err) {
+        showToast('Network error. Check EC2 backend & Security Group rules.', false);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      spinner.hidden = !isLoading;
+      btnText.style.opacity = isLoading ? '0' : '1';
+    }
+
+    function showToast(msg, isSuccess) {
+      toastMessage.textContent = msg;
+      toastIcon.textContent = isSuccess ? '✓' : '✕';
+      toast.className = `toast ${isSuccess ? 'success' : 'error'}`;
+      toast.hidden = false;
+      
+      setTimeout(() => {
+        toast.hidden = true;
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
